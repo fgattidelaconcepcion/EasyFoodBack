@@ -17,6 +17,12 @@ app.post('/api/receta', async (req, res) => {
     return res.status(400).json({ error: 'Faltan ingredientes en la solicitud.' });
   }
 
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    console.error('Error: OPENROUTER_API_KEY no está configurada.');
+    return res.status(500).json({ error: 'Error de configuración del servidor.' });
+  }
+
   const prompt = `
 Tengo los siguientes ingredientes en casa: ${ingredientes}.
 Por favor, dame una receta clara y fácil de preparar usando estos ingredientes.
@@ -33,7 +39,7 @@ Por favor, escribe sin errores ortográficos ni gramaticales.
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'http://localhost',
           'X-Title': 'EasyFoodAI'
@@ -45,10 +51,13 @@ Por favor, escribe sin errores ortográficos ni gramaticales.
     res.json({ receta });
   } catch (error) {
     console.error('Error al obtener receta:', error.response?.data || error.message);
-    res.status(500).json({
-      error: 'Hubo un problema al generar la receta.',
-      detalle: error.response?.data || error.message
-    });
+    let errorMessage = 'Hubo un problema al generar la receta.';
+    if (error.response?.data?.error?.message) {
+      errorMessage = `Error de la API: ${error.response.data.error.message}`;
+    } else if (error.message) {
+      errorMessage = `Error de red: ${error.message}`;
+    }
+    res.status(500).json({ error: errorMessage });
   }
 });
 
